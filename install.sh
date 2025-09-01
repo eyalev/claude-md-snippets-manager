@@ -2,8 +2,8 @@
 
 set -e
 
-# Claude MD Snippets - One-line installer
-echo "🚀 Installing claude-md-snippets..."
+# Claude MD Snippets Manager - One-line installer
+echo "🚀 Installing claude-md-snippets-manager..."
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -20,14 +20,14 @@ if [[ "$ARCH" != "x86_64" ]]; then
 fi
 
 # Download URL
-BINARY_URL="https://github.com/eyalev/claude-md-snippets/releases/latest/download/claude-md-snippets-linux-x64"
+BINARY_URL="https://github.com/eyalev/claude-md-snippets-manager/releases/latest/download/claude-md-snippets-manager-linux-x64"
 
 # Create temporary directory
 TMP_DIR=$(mktemp -d)
-BINARY_PATH="$TMP_DIR/claude-md-snippets"
+BINARY_PATH="$TMP_DIR/claude-md-snippets-manager"
 
 # Download binary
-echo "📥 Downloading claude-md-snippets..."
+echo "📥 Downloading claude-md-snippets-manager..."
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$BINARY_URL" -o "$BINARY_PATH"
 elif command -v wget >/dev/null 2>&1; then
@@ -43,27 +43,27 @@ chmod +x "$BINARY_PATH"
 # Install to system
 INSTALL_DIR="/usr/local/bin"
 if [[ -w "$INSTALL_DIR" ]]; then
-    mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets"
-    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets"
+    mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets-manager"
+    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets-manager"
 else
     echo "🔐 Installing to system directory (requires sudo)..."
-    sudo mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets"
-    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets"
+    sudo mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets-manager"
+    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets-manager"
 fi
 
 # Cleanup
 rm -rf "$TMP_DIR"
 
 # Verify installation
-if command -v claude-md-snippets >/dev/null 2>&1; then
+if command -v claude-md-snippets-manager >/dev/null 2>&1; then
     echo ""
     echo "🎉 Installation successful!"
     echo ""
     echo "Get started:"
-    echo "  claude-md-snippets setup    # Setup your first repository"  
-    echo "  claude-md-snippets --help   # See all available commands"
+    echo "  claude-md-snippets-manager setup    # Setup your first repository"  
+    echo "  claude-md-snippets-manager --help   # See all available commands"
     echo ""
-    claude-md-snippets --version
+    claude-md-snippets-manager --version
 else
     echo "❌ Installation failed. Binary not found in PATH."
     exit 1

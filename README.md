@@ -1,4 +1,4 @@
-# Claude MD Snippets
+# Claude MD Snippets Manager
 
 A powerful CLI tool for managing and sharing CLAUDE.md snippets through GitHub repositories.
 
@@ -16,18 +16,18 @@ A powerful CLI tool for managing and sharing CLAUDE.md snippets through GitHub r
 
 ### One-line install (Ubuntu/Linux):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eyalev/claude-md-snippets/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eyalev/claude-md-snippets-manager/master/install.sh | bash
 ```
 
 ### Manual install:
-1. Download the binary from [releases](https://github.com/eyalev/claude-md-snippets/releases)
-2. Make executable: `chmod +x claude-md-snippets-linux-x64`  
-3. Move to PATH: `sudo mv claude-md-snippets-linux-x64 /usr/local/bin/claude-md-snippets`
+1. Download the binary from [releases](https://github.com/eyalev/claude-md-snippets-manager/releases)
+2. Make executable: `chmod +x claude-md-snippets-manager-linux-x64`  
+3. Move to PATH: `sudo mv claude-md-snippets-manager-linux-x64 /usr/local/bin/claude-md-snippets-manager`
 
 ### From source:
 ```bash
-git clone https://github.com/eyalev/claude-md-snippets.git
-cd claude-md-snippets
+git clone https://github.com/eyalev/claude-md-snippets-manager.git
+cd claude-md-snippets-manager
 cargo install --path .
 ```
 
@@ -35,22 +35,22 @@ cargo install --path .
 
 ```bash
 # Setup your first repository
-claude-md-snippets setup
+claude-md-snippets-manager setup
 
 # Publish a snippet from current CLAUDE.md
-claude-md-snippets publish "automation tools"
+claude-md-snippets-manager publish "automation tools"
 
 # Publish from a file
-claude-md-snippets publish --file "my-script.sh"
+claude-md-snippets-manager publish --file "my-script.sh"
 
 # Install a snippet
-claude-md-snippets install "gui applications"
+claude-md-snippets-manager install "gui applications"
 
 # Search snippets interactively (requires fzf)
-claude-md-snippets search
+claude-md-snippets-manager search
 
 # Uninstall a snippet
-claude-md-snippets uninstall "gui applications"
+claude-md-snippets-manager uninstall "gui applications"
 ```
 
 ## Commands
