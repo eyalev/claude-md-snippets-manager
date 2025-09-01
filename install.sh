@@ -40,15 +40,24 @@ fi
 # Make executable
 chmod +x "$BINARY_PATH"
 
-# Install to system
-INSTALL_DIR="/usr/local/bin"
-if [[ -w "$INSTALL_DIR" ]]; then
-    mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets-manager"
-    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets-manager"
-else
-    echo "🔐 Installing to system directory (requires sudo)..."
-    sudo mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets-manager"
-    echo "✅ Installed to $INSTALL_DIR/claude-md-snippets-manager"
+# Install to user directory
+INSTALL_DIR="$HOME/.local/bin"
+
+# Create directory if it doesn't exist
+mkdir -p "$INSTALL_DIR"
+
+# Install binary
+mv "$BINARY_PATH" "$INSTALL_DIR/claude-md-snippets-manager"
+echo "✅ Installed to $INSTALL_DIR/claude-md-snippets-manager"
+
+# Add to PATH if not already there
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    echo ""
+    echo "⚠️  Note: $INSTALL_DIR is not in your PATH"
+    echo "   Add this line to your ~/.bashrc or ~/.zshrc:"
+    echo "   export PATH=\"\$PATH:\$HOME/.local/bin\""
+    echo "   Then restart your terminal or run: source ~/.bashrc"
+    echo ""
 fi
 
 # Cleanup
