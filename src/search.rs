@@ -75,7 +75,7 @@ pub async fn search_snippets() -> Result<()> {
                 let input = input.trim().to_lowercase();
                 
                 if input.is_empty() || input == "y" || input == "yes" {
-                    crate::install::install_to_claude_md(snippet).await?;
+                    crate::install::install_to_claude_md(snippet, false, false).await?;
                     println!("✅ Snippet installed successfully!");
                 } else {
                     println!("❌ Installation cancelled");

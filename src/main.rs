@@ -34,10 +34,16 @@ enum Commands {
         #[arg(short, long)]
         file: Option<String>,
     },
-    /// Install a snippet to local CLAUDE.md
+    /// Install a snippet to CLAUDE.md
     Install {
         /// Description to find the relevant snippet
         query: String,
+        /// Install to local CLAUDE.md in current directory
+        #[arg(long, conflicts_with = "user")]
+        local: bool,
+        /// Install to user CLAUDE.md at ~/.claude/CLAUDE.md
+        #[arg(long, conflicts_with = "local")]
+        user: bool,
     },
     /// Search snippets with fuzzy finder
     Search,
@@ -85,6 +91,11 @@ enum ConfigCommand {
     },
     /// Show current configuration
     Show,
+    /// Set the default install location
+    SetInstallLocation {
+        /// Install location: 'local' or 'user'
+        location: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -106,8 +117,8 @@ async fn main() -> Result<()> {
         Commands::Publish { content, name, file } => {
             publish::publish_snippet(content, name, file, cli.debug).await?;
         }
-        Commands::Install { query } => {
-            install::install_snippet(query).await?;
+        Commands::Install { query, local, user } => {
+            install::install_snippet(query, local, user).await?;
         }
         Commands::Search => {
             search::search_snippets().await?;
@@ -134,6 +145,9 @@ async fn main() -> Result<()> {
                 }
                 ConfigCommand::Show => {
                     show_config().await?;
+                }
+                ConfigCommand::SetInstallLocation { location } => {
+                    set_install_location(location).await?;
                 }
             }
         }
@@ -321,6 +335,28 @@ async fn show_config() -> Result<()> {
     
     let config_path = publish::get_app_dir()?.join("config.json");
     println!("📍 Config file: {}", config_path.display());
+    println!("📍 Default install location: {}", config.get_default_install_location());
+    
+    Ok(())
+}
+
+async fn set_install_location(location: String) -> Result<()> {
+    let mut config = config::Config::load()?;
+    
+    match config.set_default_install_location(location.clone()) {
+        Ok(()) => {
+            println!("✅ Set default install location to: {}", location);
+            match location.as_str() {
+                "local" => println!("💡 Snippets will install to ./CLAUDE.md by default"),
+                "user" => println!("💡 Snippets will install to ~/.claude/CLAUDE.md by default"),
+                _ => {}
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to set install location: {}", e);
+            println!("💡 Valid options are: 'local' or 'user'");
+        }
+    }
     
     Ok(())
 }

@@ -6,6 +6,7 @@ use crate::publish::get_app_dir;
 #[derive(Serialize, Deserialize, Default)]
 pub struct Config {
     pub default_repo: Option<String>,
+    pub default_install_location: Option<String>, // "local" or "user"
 }
 
 impl Config {
@@ -44,6 +45,19 @@ impl Config {
     
     pub fn get_default_repo(&self) -> Option<&str> {
         self.default_repo.as_deref()
+    }
+    
+    pub fn set_default_install_location(&mut self, location: String) -> Result<()> {
+        if location == "local" || location == "user" {
+            self.default_install_location = Some(location);
+            self.save()
+        } else {
+            anyhow::bail!("Install location must be 'local' or 'user'")
+        }
+    }
+    
+    pub fn get_default_install_location(&self) -> &str {
+        self.default_install_location.as_deref().unwrap_or("local")
     }
 }
 

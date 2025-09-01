@@ -4,7 +4,7 @@ use std::process::Command;
 use std::io::Write;
 use crate::publish::{Snippet, get_snippets_dir};
 
-pub async fn install_snippet(query: String) -> Result<()> {
+pub async fn install_snippet(query: String, force_local: bool, force_user: bool) -> Result<()> {
     // Load all available snippets
     let snippets = load_snippets()?;
     
@@ -32,7 +32,7 @@ pub async fn install_snippet(query: String) -> Result<()> {
         let input = input.trim().to_lowercase();
         
         if input.is_empty() || input == "y" || input == "yes" {
-            install_to_claude_md(&snippet).await?;
+            install_to_claude_md(&snippet, force_local, force_user).await?;
             println!("✅ Snippet installed successfully!");
         } else {
             println!("❌ Installation cancelled");
@@ -139,8 +139,8 @@ fn fuzzy_match(snippets: &[Snippet], query: &str) -> Result<Option<Snippet>> {
     Ok(scored_snippets.first().map(|(_, snippet)| (*snippet).clone()))
 }
 
-pub async fn install_to_claude_md(snippet: &Snippet) -> Result<()> {
-    let claude_md_path = get_claude_md_path()?;
+pub async fn install_to_claude_md(snippet: &Snippet, force_local: bool, force_user: bool) -> Result<()> {
+    let claude_md_path = get_claude_md_path(force_local, force_user)?;
     
     // Read existing CLAUDE.md content
     let existing_content = if claude_md_path.exists() {
@@ -149,9 +149,20 @@ pub async fn install_to_claude_md(snippet: &Snippet) -> Result<()> {
         String::new()
     };
     
-    // Create header comment for the snippet
-    let snippet_header = format!("\n\n# {} (installed snippet)\n\n", snippet.name);
-    let new_content = format!("{}{}{}", existing_content, snippet_header, snippet.content);
+    // Check if snippet content already starts with a header
+    let snippet_content = snippet.content.trim();
+    let already_has_header = snippet_content.lines().next()
+        .map(|line| line.trim().starts_with('#'))
+        .unwrap_or(false);
+    
+    let new_content = if already_has_header {
+        // Just add the content with a separator comment
+        format!("{}\n\n{}", existing_content, snippet_content)
+    } else {
+        // Add header for content without one
+        let snippet_header = format!("\n\n# {} (installed snippet)\n\n", snippet.name);
+        format!("{}{}{}", existing_content, snippet_header, snippet_content)
+    };
     
     // Write back to CLAUDE.md
     fs::write(&claude_md_path, new_content)?;
@@ -161,22 +172,47 @@ pub async fn install_to_claude_md(snippet: &Snippet) -> Result<()> {
     Ok(())
 }
 
-fn get_claude_md_path() -> Result<std::path::PathBuf> {
-    // First try project-local CLAUDE.md
-    let current_dir = std::env::current_dir()?;
-    let local_claude_md = current_dir.join("CLAUDE.md");
-    
-    if local_claude_md.exists() {
-        return Ok(local_claude_md);
+fn get_claude_md_path(force_local: bool, force_user: bool) -> Result<std::path::PathBuf> {
+    if force_local {
+        // Force local installation
+        let current_dir = std::env::current_dir()?;
+        return Ok(current_dir.join("CLAUDE.md"));
     }
     
-    // Fall back to global CLAUDE.md
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    Ok(home.join(".claude/CLAUDE.md"))
+    if force_user {
+        // Force user installation
+        let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+        let claude_dir = home.join(".claude");
+        fs::create_dir_all(&claude_dir)?;
+        return Ok(claude_dir.join("CLAUDE.md"));
+    }
+    
+    // Use config default
+    let config = crate::config::Config::load()?;
+    let default_location = config.get_default_install_location();
+    
+    match default_location {
+        "local" => {
+            let current_dir = std::env::current_dir()?;
+            Ok(current_dir.join("CLAUDE.md"))
+        }
+        "user" => {
+            let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+            let claude_dir = home.join(".claude");
+            fs::create_dir_all(&claude_dir)?;
+            Ok(claude_dir.join("CLAUDE.md"))
+        }
+        _ => {
+            // Fallback to local
+            let current_dir = std::env::current_dir()?;
+            Ok(current_dir.join("CLAUDE.md"))
+        }
+    }
 }
 
 fn load_snippets() -> Result<Vec<Snippet>> {
-    let snippets_dir = get_snippets_dir()?;
+    let repo_dir = get_snippets_dir()?;
+    let snippets_dir = repo_dir.join("snippets");
     
     if !snippets_dir.exists() {
         return Ok(Vec::new());
@@ -188,9 +224,9 @@ fn load_snippets() -> Result<Vec<Snippet>> {
         let entry = entry?;
         let path = entry.path();
         
-        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+        if path.extension().and_then(|s| s.to_str()) == Some("md") {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(snippet) = serde_json::from_str::<Snippet>(&content) {
+                if let Ok(snippet) = crate::publish::parse_markdown_frontmatter(&content) {
                     snippets.push(snippet);
                 }
             }

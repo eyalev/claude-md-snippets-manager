@@ -19,14 +19,18 @@ pub async fn sync_snippets() -> Result<()> {
         init_snippets_repo(&snippets_dir).await?;
     }
     
-    // Add all snippet files
+    // Add all changes (including deletions)
     let output = Command::new("git")
         .current_dir(&snippets_dir)
-        .args(&["add", "snippets/*.md"])
+        .args(&["add", "-A"])
         .output()?;
     
     if !output.status.success() {
-        println!("⚠️  Warning: Could not stage files");
+        println!("⚠️  Warning: Could not stage changes");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            println!("⚠️  Git error: {}", stderr);
+        }
     }
     
     // Check if there are changes to commit
@@ -43,7 +47,7 @@ pub async fn sync_snippets() -> Result<()> {
     // Commit changes
     let commit_output = Command::new("git")
         .current_dir(&snippets_dir)
-        .args(&["commit", "-m", "Add new snippets"])
+        .args(&["commit", "-m", "Sync snippets: add/modify/remove files"])
         .output()?;
     
     if !commit_output.status.success() {
