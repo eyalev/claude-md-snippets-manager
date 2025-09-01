@@ -1,91 +1,120 @@
 # Claude MD Snippets
 
-A Rust CLI tool for managing and sharing CLAUDE.md snippets. Publish your snippets, discover community snippets, and install them with smart matching powered by Claude Code.
+A powerful CLI tool for managing and sharing CLAUDE.md snippets through GitHub repositories.
 
 ## Features
 
-- **Publish**: Create and share CLAUDE.md snippets
-- **Install**: Intelligently find and install snippets using Claude Code
-- **Search**: Fuzzy search through snippets with fzf integration  
-- **Sync**: GitHub integration for sharing snippets with the community
+- **📝 Publish**: Share snippets from your CLAUDE.md or individual files
+- **📦 Install**: Install snippets with intelligent matching using Claude Code CLI
+- **🔍 Search**: Interactive fuzzy finder for snippet discovery  
+- **🗑️ Uninstall**: Safely remove installed snippets with ID tracking
+- **🔄 Multi-repo**: Support for multiple GitHub repositories
+- **⚡ Sync**: Automated GitHub synchronization
+- **⚙️ Config**: Flexible configuration for default repositories and install locations
 
 ## Installation
 
+### One-line install (Ubuntu/Linux):
 ```bash
+curl -fsSL https://raw.githubusercontent.com/eyalev/claude-md-snippets/master/install.sh | bash
+```
+
+### Manual install:
+1. Download the binary from [releases](https://github.com/eyalev/claude-md-snippets/releases)
+2. Make executable: `chmod +x claude-md-snippets-linux-x64`  
+3. Move to PATH: `sudo mv claude-md-snippets-linux-x64 /usr/local/bin/claude-md-snippets`
+
+### From source:
+```bash
+git clone https://github.com/eyalev/claude-md-snippets.git
+cd claude-md-snippets
 cargo install --path .
 ```
 
 ## Quick Start
 
-### Publish a snippet
 ```bash
-claude-md-snippets publish "## Running GUI Applications
+# Setup your first repository
+claude-md-snippets setup
 
-When opening GUI applications like Chrome, Firefox, etc., always use \`nohup\` and redirect output to /dev/null to run them completely detached:
+# Publish a snippet from current CLAUDE.md
+claude-md-snippets publish "automation tools"
 
-\`\`\`bash
-nohup google-chrome > /dev/null 2>&1 &
-\`\`\`
+# Publish from a file
+claude-md-snippets publish --file "my-script.sh"
 
-This prevents the terminal from getting stuck on application output."
-```
+# Install a snippet
+claude-md-snippets install "gui applications"
 
-### Install a snippet
-```bash
-claude-md-snippets install "gui applications chrome"
-```
-
-### Search and browse snippets
-```bash
+# Search snippets interactively (requires fzf)
 claude-md-snippets search
+
+# Uninstall a snippet
+claude-md-snippets uninstall "gui applications"
 ```
 
-### Sync with GitHub
-```bash
-# Push local snippets to repository
-claude-md-snippets sync
+## Commands
 
-# Pull latest snippets from repository  
-claude-md-snippets pull
+### Core Commands
+- `setup` - Setup GitHub repository for snippet storage
+- `publish <query>` - Publish snippets from CLAUDE.md or files
+- `install <query>` - Install snippets to CLAUDE.md
+- `uninstall <query>` - Remove installed snippets
+- `search` - Interactive snippet browser (requires fzf)
+
+### Repository Management
+- `sync` - Sync local changes with GitHub
+- `pull` - Pull latest snippets from GitHub  
+- `status` - Show repository status
+
+### Configuration
+- `config set-repo <name>` - Set default repository
+- `config set-location <local|user>` - Set default install location
+- `repo list` - List available repositories
+- `repo switch <name>` - Switch to different repository
+
+### Options
+- `--local` - Install to local CLAUDE.md (current directory)
+- `--user` - Install to user CLAUDE.md (~/.claude/CLAUDE.md)
+- `--file <query>` - Publish from file instead of CLAUDE.md
+- `--debug` - Show debug output
+
+## How It Works
+
+1. **Storage**: Snippets are stored as markdown files with YAML frontmatter in GitHub repositories
+2. **Organization**: Multi-repository support allows organizing snippets by topic or project
+3. **Installation**: Snippets are installed with HTML comment markers for safe uninstallation
+4. **Intelligence**: Uses Claude Code CLI for smart snippet matching and extraction
+
+## Directory Structure
+
 ```
-
-## How it Works
-
-1. **Publishing**: Snippets are saved locally as JSON files with auto-generated names and metadata
-2. **Installing**: Uses Claude Code to analyze snippet content and find the best match for your query
-3. **Search**: Integrates with fzf for interactive fuzzy searching with live previews
-4. **GitHub Integration**: Manages a local git repository for syncing snippets with the community
-
-## Storage
-
-- Local snippets: `~/.claude-snippets/`
-- Installed to: `./CLAUDE.md` or `~/.claude/CLAUDE.md`
+~/.claude-md-snippets/
+└── repos/
+    ├── my-snippets/           # Local repository clone
+    │   └── snippets/          # Snippet storage directory
+    │       ├── snippet1.md    # Individual snippets
+    │       └── snippet2.md
+    └── work-snippets/         # Another repository
+        └── snippets/
+```
 
 ## Requirements
 
-- Rust (for building)
-- fzf (for search functionality)
-- git (for sync functionality)
-- Claude Code (for intelligent snippet matching)
-
-## Examples
-
-### Custom snippet name
-```bash
-claude-md-snippets publish "content here" --name "my-custom-name"
-```
-
-### Install with fallback matching
-If Claude Code is not available, the tool falls back to fuzzy text matching.
+- Linux x86_64 (Ubuntu/Debian tested)
+- Git configured with GitHub access
+- GitHub CLI (`gh`) for repository operations
+- Claude Code CLI (optional, for intelligent matching)
+- fzf (optional, for search functionality)
 
 ## Contributing
 
-This tool is designed to work with any GitHub repository. To set up your own snippet repository:
-
-1. Create a GitHub repository
-2. Configure the remote: `cd ~/.claude-snippets && git remote add origin <your-repo-url>`  
-3. Push your snippets: `claude-md-snippets sync`
+Contributions welcome! Please open issues or submit pull requests.
 
 ## License
 
-MIT License
+MIT License - see LICENSE file for details.
+
+---
+
+Built with ❤️ for the Claude Code community
