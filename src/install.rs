@@ -155,13 +155,18 @@ pub async fn install_to_claude_md(snippet: &Snippet, force_local: bool, force_us
         .map(|line| line.trim().starts_with('#'))
         .unwrap_or(false);
     
+    // Create snippet markers with ID for easy identification and removal
+    let snippet_id = &snippet.id[..8]; // Use first 8 chars of ID
+    let start_marker = format!("<!-- SNIPPET_START:{} -->", snippet_id);
+    let end_marker = format!("<!-- SNIPPET_END:{} -->", snippet_id);
+    
     let new_content = if already_has_header {
-        // Just add the content with a separator comment
-        format!("{}\n\n{}", existing_content, snippet_content)
+        // Just add the content with markers
+        format!("{}\n\n{}\n{}\n{}", existing_content, start_marker, snippet_content, end_marker)
     } else {
-        // Add header for content without one
+        // Add header for content without one, plus markers
         let snippet_header = format!("\n\n# {} (installed snippet)\n\n", snippet.name);
-        format!("{}{}{}", existing_content, snippet_header, snippet_content)
+        format!("{}{}{}\n{}\n{}", existing_content, snippet_header, start_marker, snippet_content, end_marker)
     };
     
     // Write back to CLAUDE.md
@@ -237,6 +242,90 @@ fn load_snippets() -> Result<Vec<Snippet>> {
     snippets.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     
     Ok(snippets)
+}
+
+pub async fn uninstall_snippet(query: String, force_local: bool, force_user: bool) -> Result<()> {
+    let snippets = load_snippets()?;
+    
+    if snippets.is_empty() {
+        println!("❌ No snippets found. Nothing to uninstall!");
+        return Ok(());
+    }
+
+    println!("🔍 Finding snippet to uninstall: '{}'", query);
+    
+    let best_match = find_best_match(&snippets, &query).await?;
+    
+    if let Some(snippet) = best_match {
+        println!("✅ Found matching snippet: '{}'", snippet.name);
+        
+        let claude_md_path = get_claude_md_path(force_local, force_user)?;
+        
+        if !claude_md_path.exists() {
+            println!("❌ CLAUDE.md not found at: {}", claude_md_path.display());
+            return Ok(());
+        }
+        
+        let existing_content = fs::read_to_string(&claude_md_path)?;
+        let snippet_id = &snippet.id[..8];
+        let start_marker = format!("<!-- SNIPPET_START:{} -->", snippet_id);
+        let end_marker = format!("<!-- SNIPPET_END:{} -->", snippet_id);
+        
+        if !existing_content.contains(&start_marker) {
+            println!("❌ Snippet '{}' is not installed in CLAUDE.md", snippet.name);
+            return Ok(());
+        }
+        
+        print!("Remove snippet '{}' from CLAUDE.md? [Y/n]: ", snippet.name);
+        std::io::stdout().flush()?;
+        
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+        
+        if input.is_empty() || input == "y" || input == "yes" {
+            let updated_content = remove_snippet_from_content(&existing_content, &start_marker, &end_marker)?;
+            fs::write(&claude_md_path, updated_content)?;
+            println!("✅ Snippet '{}' removed successfully from {}", snippet.name, claude_md_path.display());
+        } else {
+            println!("❌ Uninstall cancelled");
+        }
+    } else {
+        println!("❌ No suitable snippet found for query: '{}'", query);
+        println!("💡 Available snippets:");
+        for snippet in &snippets {
+            println!("  - {}", snippet.name);
+        }
+    }
+    
+    Ok(())
+}
+
+fn remove_snippet_from_content(content: &str, start_marker: &str, end_marker: &str) -> Result<String> {
+    let start_pos = content.find(start_marker);
+    let end_pos = content.find(end_marker);
+    
+    match (start_pos, end_pos) {
+        (Some(start), Some(end)) => {
+            let end_with_marker = end + end_marker.len();
+            
+            let before = &content[..start];
+            let after = &content[end_with_marker..];
+            
+            let mut result = before.to_string();
+            result.push_str(after);
+            
+            let cleaned = result.trim().to_string();
+            if !cleaned.is_empty() {
+                Ok(format!("{}\n", cleaned))
+            } else {
+                Ok(cleaned)
+            }
+        }
+        _ => {
+            anyhow::bail!("Could not find both start and end markers for snippet")
+        }
+    }
 }
 
 fn preview_content(content: &str) -> String {

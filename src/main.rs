@@ -45,6 +45,17 @@ enum Commands {
         #[arg(long, conflicts_with = "local")]
         user: bool,
     },
+    /// Uninstall a snippet from CLAUDE.md
+    Uninstall {
+        /// Description or ID to find the snippet to uninstall
+        query: String,
+        /// Uninstall from local CLAUDE.md in current directory
+        #[arg(long, conflicts_with = "user")]
+        local: bool,
+        /// Uninstall from user CLAUDE.md at ~/.claude/CLAUDE.md
+        #[arg(long, conflicts_with = "local")]
+        user: bool,
+    },
     /// Search snippets with fuzzy finder
     Search,
     /// Sync snippets with GitHub repository
@@ -119,6 +130,9 @@ async fn main() -> Result<()> {
         }
         Commands::Install { query, local, user } => {
             install::install_snippet(query, local, user).await?;
+        }
+        Commands::Uninstall { query, local, user } => {
+            install::uninstall_snippet(query, local, user).await?;
         }
         Commands::Search => {
             search::search_snippets().await?;
