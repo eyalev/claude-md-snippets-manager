@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use tokio::fs as async_fs;
+use uuid::Uuid;
 
 pub async fn extract_snippet(query: String) -> Result<()> {
     println!("Extracting information about: {}", query);
@@ -22,10 +23,10 @@ pub async fn extract_snippet(query: String) -> Result<()> {
         .context("Failed to create ./.claude.local/snippets directory")?;
     
     // Use Claude Code to extract relevant information
-    let extracted_content = extract_with_claude_code(&query, &claude_md_path).await?;
+    let (extracted_content, snippet_id) = extract_with_claude_code(&query, &claude_md_path).await?;
     
-    // Generate filename from query (sanitized)
-    let filename = sanitize_filename(&query) + ".md";
+    // Generate filename from query (sanitized) with ID
+    let filename = format!("{}-{}.md", sanitize_filename(&query), &snippet_id[..8]);
     let output_path = local_snippets_dir.join(&filename);
     
     // Write extracted content to file
@@ -38,7 +39,7 @@ pub async fn extract_snippet(query: String) -> Result<()> {
     Ok(())
 }
 
-async fn extract_with_claude_code(query: &str, claude_md_path: &Path) -> Result<String> {
+async fn extract_with_claude_code(query: &str, claude_md_path: &Path) -> Result<(String, String)> {
     println!("Using Claude Code to extract relevant information...");
     
     // Prepare the prompt for Claude Code
@@ -64,16 +65,21 @@ async fn extract_with_claude_code(query: &str, claude_md_path: &Path) -> Result<
     
     let extracted = String::from_utf8_lossy(&output.stdout);
     
-    // Add metadata header
-    let content = format!(
-        "# {}\n\n<!-- Extracted from ~/.claude/CLAUDE.md using claude-md-snippets -->\n<!-- Query: {} -->\n<!-- Date: {} -->\n\n{}",
+    // Create content with YAML frontmatter
+    let id = Uuid::new_v4().to_string();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    
+    let frontmatter = format!(
+        "---\nid: {}\nname: {}\ncreated_at: {}\ndescription: Extracted from ~/.claude/CLAUDE.md\nsource: extract\nquery: {}\n---\n\n",
+        id,
         query,
-        query,
-        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-        extracted.trim()
+        timestamp,
+        query
     );
     
-    Ok(content)
+    let content = format!("{}{}", frontmatter, extracted.trim());
+    
+    Ok((content, id))
 }
 
 fn sanitize_filename(input: &str) -> String {

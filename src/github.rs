@@ -22,7 +22,7 @@ pub async fn sync_snippets() -> Result<()> {
     // Add all snippet files
     let output = Command::new("git")
         .current_dir(&snippets_dir)
-        .args(&["add", "*.md"])
+        .args(&["add", "snippets/*.md"])
         .output()?;
     
     if !output.status.success() {
@@ -120,8 +120,11 @@ async fn init_snippets_repo(snippets_dir: &std::path::Path) -> Result<()> {
     let gitignore_content = "# Temp files\n*.tmp\n*.swp\n*~\n\n# OS files\n.DS_Store\nThumbs.db\n";
     fs::write(snippets_dir.join(".gitignore"), gitignore_content)?;
     
+    // Create snippets directory
+    fs::create_dir_all(snippets_dir.join("snippets"))?;
+    
     // Create README
-    let readme_content = "# Claude MD Snippets\n\nThis repository contains shared CLAUDE.md snippets.\n\n## Usage\n\nUse the `claude-md-snippets` CLI tool to publish, install, and search snippets.\n";
+    let readme_content = "# Claude MD Snippets\n\nThis repository contains shared CLAUDE.md snippets.\n\n## Structure\n\n- `snippets/` - Contains all snippet files\n- Each snippet is stored as a markdown file with YAML frontmatter\n\n## Usage\n\nUse the `claude-md-snippets` CLI tool to publish, install, and search snippets.\n";
     fs::write(snippets_dir.join("README.md"), readme_content)?;
     
     // Configure git user for this repository
@@ -180,7 +183,8 @@ async fn clone_default_repo() -> Result<()> {
 }
 
 async fn load_snippets() -> Result<Vec<Snippet>> {
-    let snippets_dir = get_snippets_dir()?;
+    let repo_dir = get_snippets_dir()?;
+    let snippets_dir = repo_dir.join("snippets");
     
     if !snippets_dir.exists() {
         return Ok(Vec::new());
@@ -323,7 +327,7 @@ pub async fn setup_repository(repo_name_option: Option<String>) -> Result<()> {
             }
         }
         
-        // Initial push
+        // Try initial push, but handle existing repository case
         println!("📤 Pushing to remote repository...");
         let push_output = Command::new("git")
             .current_dir(&snippets_dir)
@@ -334,21 +338,51 @@ pub async fn setup_repository(repo_name_option: Option<String>) -> Result<()> {
             println!("✅ Setup complete! Your snippets repository is ready.");
             println!("🌐 Repository: https://github.com/{}/{}", username, github_repo_name);
             println!("📁 Local directory: {}", snippets_dir.display());
-            
-            // Set as default repository
-            let mut config = crate::config::Config::load()?;
-            config.set_default_repo(github_repo_name.clone())?;
-            println!("🎯 Set '{}' as your default repository", github_repo_name);
         } else {
             let stderr = String::from_utf8_lossy(&push_output.stderr);
-            println!("⚠️  Push failed: {}", stderr);
-            println!("💡 Try running 'claude-md-snippets sync' after creating some snippets");
             
-            // Still set as default even if push failed
-            let mut config = crate::config::Config::load()?;
-            config.set_default_repo(github_repo_name.clone())?;
-            println!("🎯 Set '{}' as your default repository", github_repo_name);
+            // Check if this is a "fetch first" error indicating existing remote content
+            if stderr.contains("rejected") && stderr.contains("fetch first") {
+                println!("📥 Repository already has content. Syncing with remote...");
+                
+                // Try to pull and merge with explicit merge strategy
+                let pull_output = Command::new("git")
+                    .current_dir(&snippets_dir)
+                    .args(&["pull", "origin", "main", "--allow-unrelated-histories", "--no-rebase"])
+                    .output()?;
+                
+                if pull_output.status.success() {
+                    println!("✅ Successfully synced with existing repository content.");
+                    
+                    // Try push again
+                    let retry_push = Command::new("git")
+                        .current_dir(&snippets_dir)
+                        .args(&["push", "-u", "origin", "main"])
+                        .output()?;
+                    
+                    if retry_push.status.success() {
+                        println!("✅ Setup complete! Your snippets repository is ready.");
+                        println!("🌐 Repository: https://github.com/{}/{}", username, github_repo_name);
+                        println!("📁 Local directory: {}", snippets_dir.display());
+                    } else {
+                        println!("⚠️  Could not push after sync. Manual intervention may be needed.");
+                        println!("💡 Try running 'claude-md-snippets sync' to resolve any conflicts");
+                    }
+                } else {
+                    let pull_stderr = String::from_utf8_lossy(&pull_output.stderr);
+                    println!("⚠️  Could not sync with existing repository: {}", pull_stderr);
+                    println!("💡 You may need to manually resolve conflicts in: {}", snippets_dir.display());
+                }
+            } else {
+                println!("⚠️  Push failed: {}", stderr);
+                println!("💡 Try running 'claude-md-snippets sync' after creating some snippets");
+            }
         }
+        
+        // Set as default repository regardless of push success
+        let mut config = crate::config::Config::load()?;
+        config.set_default_repo(github_repo_name.clone())?;
+        println!("🎯 Set '{}' as your default repository", github_repo_name);
         
     } else {
         manual_setup_instructions(&github_repo_name, &snippets_dir, is_private)?;
