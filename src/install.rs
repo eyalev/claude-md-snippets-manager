@@ -23,8 +23,10 @@ pub async fn install_snippet(query: String, force_local: bool, force_user: bool)
         println!("📋 Content preview:");
         println!("{}", preview_content(&snippet.content));
         
-        // Confirm installation
-        print!("Install this snippet to CLAUDE.md? [Y/n]: ");
+        // Confirm installation - show the exact path
+        let claude_md_path = get_claude_md_path(force_local, force_user)?;
+        let absolute_path = claude_md_path.canonicalize().unwrap_or(claude_md_path);
+        print!("Install this snippet to {}? [Y/n]: ", absolute_path.display());
         std::io::stdout().flush()?;
         
         let mut input = String::new();
@@ -172,7 +174,9 @@ pub async fn install_to_claude_md(snippet: &Snippet, force_local: bool, force_us
     // Write back to CLAUDE.md
     fs::write(&claude_md_path, new_content)?;
     
-    println!("📝 Added to: {}", claude_md_path.display());
+    // Show absolute path for clarity
+    let absolute_path = claude_md_path.canonicalize().unwrap_or(claude_md_path);
+    println!("📝 Added to: {}", absolute_path.display());
     
     Ok(())
 }
@@ -329,11 +333,12 @@ fn remove_snippet_from_content(content: &str, start_marker: &str, end_marker: &s
 }
 
 fn preview_content(content: &str) -> String {
-    let lines: Vec<&str> = content.lines().take(5).collect();
+    let lines: Vec<&str> = content.lines().take(30).collect();
+    let total_lines = content.lines().count();
     let preview = lines.join("\n");
     
-    if content.lines().count() > 5 {
-        format!("{}\n... (truncated)", preview)
+    if total_lines > 30 {
+        format!("{}\n... (truncated, {} more lines)", preview, total_lines - 30)
     } else {
         preview
     }

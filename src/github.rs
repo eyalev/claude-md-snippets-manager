@@ -19,6 +19,23 @@ pub async fn sync_snippets() -> Result<()> {
         init_snippets_repo(&snippets_dir).await?;
     }
     
+    // First, pull any remote changes
+    println!("📥 Pulling latest changes from remote...");
+    let pull_output = Command::new("git")
+        .current_dir(&snippets_dir)
+        .args(&["pull", "origin", "main"])
+        .output()?;
+    
+    if !pull_output.status.success() {
+        println!("⚠️  Warning: Could not pull from remote - continuing with local sync");
+        let stderr = String::from_utf8_lossy(&pull_output.stderr);
+        if !stderr.is_empty() && !stderr.contains("no such ref") {
+            println!("⚠️  Git pull error: {}", stderr);
+        }
+    } else {
+        println!("✅ Successfully pulled remote changes");
+    }
+    
     // Add all changes (including deletions)
     let output = Command::new("git")
         .current_dir(&snippets_dir)
@@ -40,7 +57,7 @@ pub async fn sync_snippets() -> Result<()> {
         .output()?;
     
     if status_output.stdout.is_empty() {
-        println!("✅ No changes to sync");
+        println!("✅ Sync complete - no local changes to push");
         return Ok(());
     }
     
@@ -64,7 +81,7 @@ pub async fn sync_snippets() -> Result<()> {
     
     match push_output {
         Ok(output) if output.status.success() => {
-            println!("✅ Successfully synced snippets!");
+            println!("✅ Successfully synced snippets! (pulled remote changes + pushed local changes)");
         }
         _ => {
             println!("⚠️  Could not push to remote. Make sure you have push access and the remote is configured.");
