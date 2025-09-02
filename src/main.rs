@@ -84,7 +84,7 @@ enum Commands {
     Repo {
         /// Repository name (defaults to configured default)
         #[arg(long)]
-        repo: Option<String>,
+        name: Option<String>,
         /// Use default repository
         #[arg(long)]
         default: bool,
@@ -118,6 +118,8 @@ enum RepoCommand {
     },
     /// List snippets in the repository
     List,
+    /// Open repository in browser
+    Open,
 }
 
 #[tokio::main]
@@ -165,13 +167,16 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        Commands::Repo { repo, default, repo_command } => {
+        Commands::Repo { name, default, repo_command } => {
             match repo_command {
                 RepoCommand::Delete { query } => {
-                    delete_snippet(repo, default, query, cli.debug).await?;
+                    delete_snippet(name, default, query, cli.debug).await?;
                 }
                 RepoCommand::List => {
-                    list_repo_snippets(repo, default).await?;
+                    list_repo_snippets(name, default).await?;
+                }
+                RepoCommand::Open => {
+                    open_repo_in_browser(name, default).await?;
                 }
             }
         }
@@ -672,6 +677,80 @@ async fn list_repo_snippets(repo_name: Option<String>, use_default: bool) -> Res
     }
     
     println!("📍 Repository directory: {}", repo_dir.display());
+    
+    Ok(())
+}
+
+async fn open_repo_in_browser(repo_name: Option<String>, use_default: bool) -> Result<()> {
+    use std::process::Command;
+    use publish::get_repos_dir;
+    
+    // Determine which repository to use
+    let target_repo = if use_default || repo_name.is_none() {
+        config::get_default_repo_name()?
+    } else {
+        repo_name.unwrap()
+    };
+    
+    let repos_dir = get_repos_dir()?;
+    let repo_dir = repos_dir.join(&target_repo);
+    
+    if !repo_dir.exists() {
+        anyhow::bail!("Repository '{}' not found at {}", target_repo, repo_dir.display());
+    }
+    
+    // Check if this is a git repository
+    let git_dir = repo_dir.join(".git");
+    if !git_dir.exists() {
+        anyhow::bail!("Repository '{}' is not a git repository. Initialize with git first.", target_repo);
+    }
+    
+    // Get the remote URL
+    let output = Command::new("git")
+        .current_dir(&repo_dir)
+        .args(&["remote", "get-url", "origin"])
+        .output()?;
+    
+    if !output.status.success() {
+        anyhow::bail!("No git remote 'origin' found for repository '{}'. Add a remote first.", target_repo);
+    }
+    
+    let remote_url = String::from_utf8(output.stdout)?.trim().to_string();
+    
+    // Convert git URL to HTTPS URL if needed
+    let browser_url = if remote_url.starts_with("git@github.com:") {
+        remote_url.replace("git@github.com:", "https://github.com/")
+            .strip_suffix(".git").unwrap_or(&remote_url).to_string()
+    } else if remote_url.starts_with("https://github.com/") {
+        remote_url.strip_suffix(".git").unwrap_or(&remote_url).to_string()
+    } else {
+        remote_url
+    };
+    
+    println!("🌐 Opening repository '{}' in browser...", target_repo);
+    println!("🔗 URL: {}", browser_url);
+    
+    // Open URL in default browser
+    let result = if cfg!(target_os = "macos") {
+        Command::new("open").arg(&browser_url).status()
+    } else if cfg!(target_os = "windows") {
+        Command::new("cmd").args(&["/c", "start", &browser_url]).status()
+    } else {
+        // Linux and other Unix-like systems
+        Command::new("xdg-open").arg(&browser_url).status()
+    };
+    
+    match result {
+        Ok(status) if status.success() => {
+            println!("✅ Successfully opened repository in browser");
+        }
+        Ok(_) => {
+            println!("⚠️  Failed to open browser. You can manually visit: {}", browser_url);
+        }
+        Err(e) => {
+            println!("⚠️  Failed to open browser ({}). You can manually visit: {}", e, browser_url);
+        }
+    }
     
     Ok(())
 }
